@@ -128,6 +128,12 @@ device_classes:
               nonheap_used:
                 rrdmin: 0
                 rrdtype: GAUGE
+        thresholds:
+          HeapMemoryHigh:
+            dsnames: [jvm_memory_heap_used_percent]
+            eventClass: /Status/ActiveMQ/Memory
+            severity: 4
+            maxval: '70'
         graphs:
           HeapMemory:
             units: bytes
@@ -151,6 +157,9 @@ device_classes:
                 dpName: jvm_memory_heap_used_percent
                 sequence: 1
                 lineType: AREA
+              HeapMemoryHigh:
+                type: ThresholdGraphPoint
+                threshId: HeapMemoryHigh
           NonHeapMemory:
             units: bytes
             miny: 0
