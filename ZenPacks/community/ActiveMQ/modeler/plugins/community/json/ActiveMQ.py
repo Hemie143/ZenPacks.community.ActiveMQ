@@ -38,12 +38,6 @@ class ActiveMQ(PythonPlugin):
         ['queues', 'http://{}:{}/api/jolokia/read/org.apache.activemq:*,type=Broker,destinationType=Queue'],
     ]
 
-    @staticmethod
-    def add_tag(result, label):
-        return tuple((label, result))
-
-
-
     @inlineCallbacks
     def collect(self, device, log):
         log.debug('{}: Modeling collect'.format(device.id))
@@ -59,7 +53,6 @@ class ActiveMQ(PythonPlugin):
 
         basic_auth = base64.encodestring('{}:{}'.format(username, password))
         auth_header = "Basic " + basic_auth.strip()
-
         results = {}
         agent = Agent(reactor)
         headers = {
