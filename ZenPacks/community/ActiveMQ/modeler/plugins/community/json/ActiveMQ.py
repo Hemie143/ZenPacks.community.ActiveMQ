@@ -1,18 +1,20 @@
 # stdlib Imports
+import base64
 import json
 
-# Twisted Imports
-from twisted.internet.defer import inlineCallbacks, returnValue, DeferredSemaphore, DeferredList
-from twisted.web.client import getPage
-
+import zope.component
 # Zenoss Imports
 from Products.DataCollector.plugins.CollectorPlugin import PythonPlugin
 from Products.DataCollector.plugins.DataMaps import ObjectMap, RelationshipMap
 from Products.ZenCollector.interfaces import IEventService
-from Products.ZenEvents import ZenEventClasses
-import zope.component
+from ZenPacks.community.ActiveMQ.lib.util import StringProtocol
 
-import base64
+# Twisted Imports
+from twisted.internet import reactor
+from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
+from twisted.internet.protocol import Protocol
+from twisted.web.client import Agent
+from twisted.web.http_headers import Headers
 
 
 class ActiveMQ(PythonPlugin):
@@ -40,6 +42,8 @@ class ActiveMQ(PythonPlugin):
     def add_tag(result, label):
         return tuple((label, result))
 
+
+
     @inlineCallbacks
     def collect(self, device, log):
         log.debug('{}: Modeling collect'.format(device.id))
@@ -56,47 +60,26 @@ class ActiveMQ(PythonPlugin):
         basic_auth = base64.encodestring('{}:{}'.format(username, password))
         auth_header = "Basic " + basic_auth.strip()
 
-        deferreds = []
-        sem = DeferredSemaphore(1)
-        for comp in self.components:
-            url = comp[1].format(ip_address, port)
+        results = {}
+        agent = Agent(reactor)
+        headers = {
+                   "Accept": ['application/json'],
+                   "Authorization": [auth_header],
+                   }
+
+        for component, url_pattern in self.components:
+            url = url_pattern.format(ip_address, port)
             log.debug('collect url: {}'.format(url))
-            d = sem.run(getPage, url,
-                        headers={
-                            "Accept": "application/json",
-                            "Authorization": auth_header,
-                            "User-Agent": "Mozilla/3.0Gold",
-                        },
-                        )
-            d.addCallback(self.add_tag, comp[0])
-            deferreds.append(d)
 
-        results = yield DeferredList(deferreds, consumeErrors=True)
-        for success, result in results:
-            if not success:
-                errorMessage = result.getErrorMessage()
-                log.error('{}: {}'.format(device.id, errorMessage))
-                self._eventService.sendEvent(dict(
-                    summary='Modeler plugin community.json.ActiveMQ returned no results.',
-                    message=errorMessage,
-                    eventClass='/Status/Jolokia',
-                    eventClassKey='ActiveMQ_ConnectionError',
-                    device=device.id,
-                    eventKey='|'.join(('ActiveMQPlugin', device.id)),
-                    severity=ZenEventClasses.Error,
-                    ))
-                returnValue(None)
-
-        log.debug('ActiveMQ collect results: {}'.format(results))
-        self._eventService.sendEvent(dict(
-            summary='Modeler plugin community.json.ActiveMQ successful.',
-            message='',
-            eventClass='/Status/Jolokia',
-            eventClassKey='ActiveMQ_ConnectionOK',
-            device=device.id,
-            eventKey='|'.join(('ActiveMQPlugin', device.id)),
-            severity=ZenEventClasses.Clear,
-        ))
+            try:
+                response = yield agent.request('GET', url, Headers(headers))
+                proto = StringProtocol()
+                response.deliverBody(proto)
+                body = yield proto.d
+                log.debug('body: {}'.format(body))
+                results[component] = json.loads(body)
+            except Exception, e:
+                log.error('%s: %s', device.id, e)
         returnValue(results)
 
     def process(self, device, results, log):
@@ -107,23 +90,15 @@ class ActiveMQ(PythonPlugin):
             - An ObjectMap, for the device device information
             - A list of RelationshipMaps and ObjectMaps, both
         """
+        log.debug('process results: {}'.format(results.keys()))
 
-        self.result_data = {}
-        for success, result in results:
-            if success:
-                if result:
-                    content = json.loads(result[1])
-                else:
-                    content = {}
-                self.result_data[result[0]] = content
-
-        brokers_data = self.result_data.get('brokers', '')
+        brokers_data = results.get('brokers', '')
         if brokers_data and brokers_data['status'] == 200:
             brokers_data = brokers_data.get('value', '')
         else:
             return []
 
-        queues_data = self.result_data.get('queues', '')
+        queues_data = results.get('queues', '')
         if queues_data and queues_data['status'] == 200:
             queues_data = queues_data.get('value', '')
 
@@ -160,12 +135,11 @@ class ActiveMQ(PythonPlugin):
                 # TODO: create queue id with broker id included
                 queue_data = queues_data.get(queue, '')
                 if queue_data:
-
+                    '''
                     if 'mos' in queue:
-                        log.debug('XXX Modeler queue: {}'.format(queue))
-                        log.debug('XXX Modeler queue_data: {}'.format(queue_data))
-
-
+                        log.debug('Modeler queue: {}'.format(queue))
+                        log.debug('Modeler queue_data: {}'.format(queue_data))
+                    '''
                     om_queue = ObjectMap()
                     queue_name = queue_data['Name']
                     om_queue.id = self.prepId(queue_name)
@@ -203,6 +177,4 @@ class ActiveMQ(PythonPlugin):
 
         rm.extend(rm_queues)
         rm.extend(rm_queuesdlq)
-
-        log.debug('{}: process maps:{}'.format(device.id, rm))
         return rm
