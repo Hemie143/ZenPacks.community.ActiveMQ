@@ -53,12 +53,12 @@ class ActiveMQ(PythonPlugin):
 
         basic_auth = base64.encodestring('{}:{}'.format(username, password))
         auth_header = "Basic " + basic_auth.strip()
-        results = {}
-        agent = Agent(reactor)
         headers = {
                    "Accept": ['application/json'],
                    "Authorization": [auth_header],
                    }
+        results = {}
+        agent = Agent(reactor)
 
         for component, url_pattern in self.components:
             url = url_pattern.format(ip_address, port)
@@ -66,6 +66,7 @@ class ActiveMQ(PythonPlugin):
 
             try:
                 response = yield agent.request('GET', url, Headers(headers))
+                # Jolokia doesn't reply with a Content-Length header.
                 proto = StringProtocol()
                 response.deliverBody(proto)
                 body = yield proto.d

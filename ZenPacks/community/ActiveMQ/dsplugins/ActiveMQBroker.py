@@ -1,19 +1,20 @@
 
 # stdlib Imports
+import base64
 import json
 import logging
-import base64
 
-# Twisted Imports
-from twisted.internet.defer import returnValue, DeferredSemaphore, DeferredList
-from twisted.web.client import getPage
-from twisted.internet import reactor
-from twisted.internet.protocol import Protocol
-from twisted.internet.endpoints import TCP4ClientEndpoint, connectProtocol
+from Products.ZenUtils.Utils import prepId
+from ZenPacks.community.ActiveMQ.lib.util import StringProtocol
 
 # Zenoss imports
 from ZenPacks.zenoss.PythonCollector.datasources.PythonDataSource import PythonDataSourcePlugin
-from Products.ZenUtils.Utils import prepId
+
+# Twisted Imports
+from twisted.internet import reactor
+from twisted.internet.defer import returnValue, inlineCallbacks
+from twisted.web.client import Agent
+from twisted.web.http_headers import Headers
 
 # Setup logging
 log = logging.getLogger('zen.PythonAMQBroker')
@@ -27,19 +28,12 @@ class ActiveMQBroker(PythonDataSourcePlugin):
         'zJolokiaPassword',
     )
 
-    # TODO: jolokia query should just get HTTP code back
-    # TODO: process jolokia in separate module to run once per host ???
     urls = {
         'jolokia': 'http://{}:{}/',
         'brokerhealth': 'http://{}:{}/api/jolokia/read/{},service=Health/CurrentStatus',
         'broker': 'http://{}:{}/api/jolokia/read/{}/UptimeMillis,StorePercentUsage,TempPercentUsage,CurrentConnectionsCount,MemoryPercentUsage',
     }
 
-    @staticmethod
-    def add_tag(result, label):
-        return tuple((label, result))
-
-    # TODO: check config_key broker
     @classmethod
     def config_key(cls, datasource, context):
         log.debug('In config_key {} {} {} {}'.format(context.device().id, datasource.getCycleTime(context),
@@ -58,6 +52,7 @@ class ActiveMQBroker(PythonDataSourcePlugin):
         log.debug('params is {}'.format(params))
         return params
 
+    @inlineCallbacks
     def collect(self, config):
         log.debug('Starting ActiveMQ Broker collect')
 
@@ -66,33 +61,35 @@ class ActiveMQBroker(PythonDataSourcePlugin):
             log.error("%s: IP Address cannot be empty", device.id)
             returnValue(None)
 
-        deferreds = []
-        sem = DeferredSemaphore(1)
-
-        '''
         ds0 = config.datasources[0]
-        point = TCP4ClientEndpoint(reactor, ip_address, ds0.zJolokiaPort)
-        d = connectProtocol(point, Protocol())
-        d.addCallback(self.add_tag, 'JolokiaPort')
-        deferreds.append(d)
-        '''
+        basic_auth = base64.encodestring('{}:{}'.format(ds0.zJolokiaUsername, ds0.zJolokiaPassword))
+        auth_header = "Basic " + basic_auth.strip()
+        headers = {
+                   "Accept": ['application/json'],
+                   "Authorization": [auth_header],
+                   "User-Agent": ["Mozilla/3.0Gold"],
+                   }
+        results = {}
+        agent = Agent(reactor)
 
         for datasource in config.datasources:
             object_name = datasource.params['objectName']
             url = self.urls[datasource.datasource].format(ip_address, datasource.zJolokiaPort, object_name)
-            basic_auth = base64.encodestring('{}:{}'.format(datasource.zJolokiaUsername, datasource.zJolokiaPassword))
-            auth_header = "Basic " + basic_auth.strip()
-            # TODO: replace getPage (deprecated)
-            d = sem.run(getPage, url,
-                        headers={
-                            "Accept": "application/json",
-                            "Authorization": auth_header,
-                            "User-Agent": "Mozilla/3.0Gold",
-                        },
-                        )
-            d.addCallback(self.add_tag, datasource.datasource)
-            deferreds.append(d)
-        return DeferredList(deferreds)
+            try:
+                response = yield agent.request('GET', url, Headers(headers))
+                results[datasource.datasource] = {}
+                results[datasource.datasource]['http_code'] = response.code
+                if datasource.datasource == 'jolokia':
+                    results[datasource.datasource]['body'] = None
+                else:
+                    # Jolokia doesn't reply with a Content-Length header.
+                    proto = StringProtocol()
+                    response.deliverBody(proto)
+                    body = yield proto.d
+                    results[datasource.datasource]['body'] = json.loads(body)
+            except Exception, e:
+                log.error('%s: %s', datasource.datasource, e)
+        returnValue(results)
 
     def onSuccess(self, result, config):
         log.debug('Success - result is {}'.format(result))
@@ -100,10 +97,10 @@ class ActiveMQBroker(PythonDataSourcePlugin):
         # TODO: Move following block under next loop, in case of multiple brokers
         data = self.new_data()
         broker_name = config.datasources[0].component
-        ds_data = {}
+        component = prepId(broker_name)
 
         # Check that all data has been received correctly
-        if any([not s for s, d in result]):
+        if 'jolokia' not in result or result['jolokia']['http_code'] > 299:
             data['events'].append({
                 'device': config.id,
                 'component': broker_name,
@@ -114,57 +111,20 @@ class ActiveMQBroker(PythonDataSourcePlugin):
                 'message': '{}'.format(d),
                 'eventClass': '/Status/Jolokia',
             })
-            return data
+        else:
+            data['events'].append({
+                'device': config.id,
+                'component': broker_name,
+                'severity': 0,
+                'eventKey': 'AMQBroker',
+                'eventClassKey': 'AMQBroker',
+                'summary': 'AMQBroker - Collection OK',
+                'message': '',
+                'eventClass': '/Status/Jolokia',
+            })
 
-        # Collect metrics per datasource in ds_data. If failed, generate event
-        for success, ddata in result:
-            if success:
-                ds = ddata[0]
-                if ds == 'jolokia':
-                    # Data is not in JSON format
-                    ds_data[ds] = 'OK'
-                else:
-                    metrics = json.loads(ddata[1])
-                    ds_data[ds] = metrics
-            else:
-                data['events'].append({
-                    'device': config.id,
-                    'component': broker_name,
-                    'severity': 3,
-                    'eventKey': 'AMQBroker',
-                    'eventClassKey': 'AMQBroker',
-                    'summary': 'AMQBroker - Collection failed',
-                    'message': '{}'.format(ddata.value),
-                    'eventClass': '/Status/Jolokia',
-                })
-
-        # Broker data collection went fine
-        data['events'].append({
-            'device': config.id,
-            'component': broker_name,
-            'severity': 0,
-            'eventKey': 'AMQBroker',
-            'eventClassKey': 'AMQBroker',
-            'summary': 'AMQBroker - Collection OK',
-            'message': '',
-            'eventClass': '/Status/Jolokia',
-        })
-
-        # Generate metrics data per datasource
-        for datasource in config.datasources:
-            component = prepId(datasource.component)
-            if 'brokerhealth' not in ds_data:
-                continue
-            broker_health = ds_data['brokerhealth']['value']
-            if 'broker' not in ds_data:
-                continue
-            broker_values = ds_data['broker']['value']
-            uptimemillis = broker_values['UptimeMillis']
-            data['values'][component]['uptime'] = uptimemillis / 1000 / 60
-            data['values'][component]['memoryusage'] = broker_values['MemoryPercentUsage']
-            data['values'][component]['storeusage'] = broker_values['StorePercentUsage']
-            data['values'][component]['tempusage'] = broker_values['TempPercentUsage']
-            data['values'][component]['currentconnections'] = broker_values['CurrentConnectionsCount']
+        if 'brokerhealth' in result:
+            broker_health = result['brokerhealth']['body']['value']
             if broker_health.startswith('Good'):
                 data['values'][component]['health'] = 0
                 data['events'].append({
@@ -191,6 +151,16 @@ class ActiveMQBroker(PythonDataSourcePlugin):
                     'eventClass': '/Status/ActiveMQ/Broker',
                     'amqHealth': broker_health
                 })
+
+        if 'broker' in result:
+            broker_values = result['broker']['body']['value']
+            uptimemillis = broker_values['UptimeMillis']
+            data['values'][component]['uptime'] = uptimemillis / 1000 / 60
+            data['values'][component]['memoryusage'] = broker_values['MemoryPercentUsage']
+            data['values'][component]['storeusage'] = broker_values['StorePercentUsage']
+            data['values'][component]['tempusage'] = broker_values['TempPercentUsage']
+            data['values'][component]['currentconnections'] = broker_values['CurrentConnectionsCount']
+
         log.debug('ActiveMQBroker onSuccess data: {}'.format(data))
         return data
 

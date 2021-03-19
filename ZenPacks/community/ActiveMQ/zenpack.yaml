@@ -251,11 +251,6 @@ device_classes:
       ActiveMQQueue:
         targetPythonClass: ZenPacks.community.ActiveMQ.ActiveMQQueue
         datasources:
-          jolokia:
-            type: Python
-            plugin_classname: ZenPacks.community.ActiveMQ.dsplugins.ActiveMQQueue.ActiveMQQueue
-            datapoints:
-              jolokia: GAUGE
           queue:
             type: Python
             plugin_classname: ZenPacks.community.ActiveMQ.dsplugins.ActiveMQQueue.ActiveMQQueue
@@ -396,11 +391,6 @@ device_classes:
       ActiveMQQueueDLQ:
         targetPythonClass: ZenPacks.community.ActiveMQ.ActiveMQQueueDLQ
         datasources:
-          jolokia:
-            type: Python
-            plugin_classname: ZenPacks.community.ActiveMQ.dsplugins.ActiveMQQueue.ActiveMQQueue
-            datapoints:
-              jolokia: GAUGE
           queue:
             type: Python
             plugin_classname: ZenPacks.community.ActiveMQ.dsplugins.ActiveMQQueue.ActiveMQQueue
