@@ -42,7 +42,7 @@ classes:
         # TODO: Correct display, nothing is shown
         label: Status
         type: string
-        datapoint: broker_health
+        datapoint: brokerhealth_health
         renderer: Zenoss.render.severity
         grid_display: true
         label_width: 40
