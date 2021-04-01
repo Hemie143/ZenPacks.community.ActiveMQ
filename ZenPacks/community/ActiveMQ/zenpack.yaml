@@ -39,7 +39,6 @@ classes:
         label: Version
         grid_display: true
       status:
-        # TODO: Correct display, nothing is shown
         label: Status
         type: string
         datapoint: brokerhealth_health
