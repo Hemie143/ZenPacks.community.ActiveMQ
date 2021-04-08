@@ -1,6 +1,7 @@
 # stdlib Imports
 import base64
 import json
+import re
 
 import zope.component
 # Zenoss Imports
@@ -70,7 +71,7 @@ class ActiveMQ(PythonPlugin):
                 proto = StringProtocol()
                 response.deliverBody(proto)
                 body = yield proto.d
-                log.debug('body: {}'.format(body))
+                # log.debug('body: {}'.format(body))
                 results[component] = json.loads(body)
             except Exception, e:
                 log.error('%s: %s', device.id, e)
@@ -122,11 +123,11 @@ class ActiveMQ(PythonPlugin):
             compname_broker = 'activeMQBrokers/{}'.format(om_broker.id)
             queues = brokerAttr.get('Queues')
 
-            # log.debug('XXX Modeler queues: {}'.format(queues))
-
-            for _, queue in [(_, queue) for q in queues for (_, queue) in q.items()]:
+            # for _, queue in [(_, queue) for q in queues for (_, queue) in q.items()]:
+            for queue in [queue for q in queues for (_, queue) in q.items()]:
                 # TODO: What if queue with same name in different broker ?
                 # TODO: create queue id with broker id included
+
                 queue_data = queues_data.get(queue, '')
                 if queue_data:
                     '''
@@ -140,14 +141,23 @@ class ActiveMQ(PythonPlugin):
                     om_queue.title = queue_name
                     om_queue.objectName = queue
                     om_queue.brokerName = broker_name
+                else:
+                    om_queue = ObjectMap()
+                    r = re.search('.*destinationName=([^,]*),', queue)
+                    if r:
+                        queue_name = r.group(1)
+                        om_queue.id = self.prepId(queue_name)
+                        om_queue.title = queue_name
+                        om_queue.objectName = queue
+                        om_queue.brokerName = broker_name
 
-                    # DLQ detection based on attribute
-                    # queue_dlq = queue_data['DLQ']
-                    queue_dlq = queue_name.startswith('DLQ')
-                    if queue_dlq:
-                        queuedlq_maps.append(om_queue)
-                    else:
-                        queue_maps.append(om_queue)
+                # DLQ detection based on attribute
+                # queue_dlq = queue_data['DLQ']
+                queue_dlq = queue_name.startswith('DLQ')
+                if queue_dlq:
+                    queuedlq_maps.append(om_queue)
+                else:
+                    queue_maps.append(om_queue)
 
             rm_queues.append(RelationshipMap(relname='activeMQQueues',
                                              modname='ZenPacks.community.ActiveMQ.ActiveMQQueue',
