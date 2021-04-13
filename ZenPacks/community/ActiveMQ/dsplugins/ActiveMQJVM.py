@@ -3,6 +3,7 @@
 import base64
 import json
 import logging
+import urllib
 
 from Products.ZenUtils.Utils import prepId
 from ZenPacks.community.ActiveMQ.lib.util import StringProtocol
@@ -31,6 +32,12 @@ class ActiveMQJVM(PythonDataSourcePlugin):
 
     urls = {
         'jvm_memory': 'http://{}:{}/api/jolokia/read/java.lang:type=Memory',
+        'jvm_memorypool_codecache': 'http://{}:{}/api/jolokia/read/java.lang:type=MemoryPool,name=Code%20Cache/Usage',
+        'jvm_memorypool_compclass': 'http://{}:{}/api/jolokia/read/java.lang:type=MemoryPool,name=Compressed%20Class%20Space/Usage',
+        'jvm_memorypool_meta': 'http://{}:{}/api/jolokia/read/java.lang:type=MemoryPool,name=Metaspace/Usage',
+        'jvm_memorypool_pseden': 'http://{}:{}/api/jolokia/read/java.lang:type=MemoryPool,name=PS%20Eden%20Space/Usage',
+        'jvm_memorypool_psoldgen': 'http://{}:{}/api/jolokia/read/java.lang:type=MemoryPool,name=PS%20Old%20Gen/Usage',
+        'jvm_memorypool_pssurvivor': 'http://{}:{}/api/jolokia/read/java.lang:type=MemoryPool,name=PS%20Survivor%20Space/Usage',
     }
 
     @classmethod
@@ -60,9 +67,6 @@ class ActiveMQJVM(PythonDataSourcePlugin):
             log.error("%s: IP Address cannot be empty", device.id)
             returnValue(None)
 
-        # deferreds = []
-        # sem = DeferredSemaphore(1)
-
         ds0 = config.datasources[0]
         basic_auth = base64.encodestring('{}:{}'.format(ds0.zJolokiaUsername, ds0.zJolokiaPassword))
         auth_header = "Basic " + basic_auth.strip()
@@ -76,6 +80,7 @@ class ActiveMQJVM(PythonDataSourcePlugin):
 
         for datasource in config.datasources:
             url = self.urls[datasource.datasource].format(ip_address, datasource.zJolokiaPort)
+            log.debug('XXX url: {}'.format(url))
             try:
                 response = yield agent.request('GET', url, Headers(headers))
                 results[datasource.datasource] = {}
@@ -86,7 +91,7 @@ class ActiveMQJVM(PythonDataSourcePlugin):
                 results[datasource.datasource]['body'] = json.loads(body)
             except Exception, e:
                 log.error('%s: %s', datasource.datasource, e)
-            returnValue(results)
+        returnValue(results)
 
     def onSuccess(self, result, config):
         log.debug('Success - result is {}'.format(result))
@@ -104,6 +109,12 @@ class ActiveMQJVM(PythonDataSourcePlugin):
             nonheap_values = jvm_memory_values['NonHeapMemoryUsage']
             data['values'][component]['nonheap_committed'] = nonheap_values['committed']
             data['values'][component]['nonheap_used'] = nonheap_values['used']
+
+        for k, v in result.items():
+            if k.startswith('jvm_memorypool_'):
+                log.debug('k: {} - v : {}'.format(k, v))
+
+
         log.debug('ActiveMQJVM onSuccess data: {}'.format(data))
         return data
 

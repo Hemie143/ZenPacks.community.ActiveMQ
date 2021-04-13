@@ -127,6 +127,84 @@ device_classes:
               nonheap_used:
                 rrdmin: 0
                 rrdtype: GAUGE
+          jvm_memorypool_codecache:
+            type: Python
+            plugin_classname: ZenPacks.community.ActiveMQ.dsplugins.ActiveMQJVM.ActiveMQJVM
+            datapoints:
+              committed:
+                rrdmin: 0
+                rrdtype: GAUGE
+              used:
+                rrdmin: 0
+                rrdtype: GAUGE
+              max:
+                rrdmin: 0
+                rrdtype: GAUGE
+          jvm_memorypool_compclass:
+            type: Python
+            plugin_classname: ZenPacks.community.ActiveMQ.dsplugins.ActiveMQJVM.ActiveMQJVM
+            datapoints:
+              committed:
+                rrdmin: 0
+                rrdtype: GAUGE
+              used:
+                rrdmin: 0
+                rrdtype: GAUGE
+              max:
+                rrdmin: 0
+                rrdtype: GAUGE
+          jvm_memorypool_meta:
+            type: Python
+            plugin_classname: ZenPacks.community.ActiveMQ.dsplugins.ActiveMQJVM.ActiveMQJVM
+            datapoints:
+              committed:
+                rrdmin: 0
+                rrdtype: GAUGE
+              used:
+                rrdmin: 0
+                rrdtype: GAUGE
+              max:
+                rrdmin: 0
+                rrdtype: GAUGE
+          jvm_memorypool_pseden:
+            type: Python
+            plugin_classname: ZenPacks.community.ActiveMQ.dsplugins.ActiveMQJVM.ActiveMQJVM
+            datapoints:
+              committed:
+                rrdmin: 0
+                rrdtype: GAUGE
+              used:
+                rrdmin: 0
+                rrdtype: GAUGE
+              max:
+                rrdmin: 0
+                rrdtype: GAUGE
+          jvm_memorypool_psoldgen:
+            type: Python
+            plugin_classname: ZenPacks.community.ActiveMQ.dsplugins.ActiveMQJVM.ActiveMQJVM
+            datapoints:
+              committed:
+                rrdmin: 0
+                rrdtype: GAUGE
+              used:
+                rrdmin: 0
+                rrdtype: GAUGE
+              max:
+                rrdmin: 0
+                rrdtype: GAUGE
+          jvm_memorypool_pssurvivor:
+            type: Python
+            plugin_classname: ZenPacks.community.ActiveMQ.dsplugins.ActiveMQJVM.ActiveMQJVM
+            datapoints:
+              committed:
+                rrdmin: 0
+                rrdtype: GAUGE
+              used:
+                rrdmin: 0
+                rrdtype: GAUGE
+              max:
+                rrdmin: 0
+                rrdtype: GAUGE
         thresholds:
           HeapMemoryHigh:
             dsnames: [jvm_memory_heap_used_percent]
