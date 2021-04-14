@@ -250,6 +250,78 @@ device_classes:
                 dpName: jvm_memory_nonheap_used
                 sequence: 2
                 lineType: AREA
+          MemoryPool Code Cache:
+            units: bytes
+            miny: 0.0
+            graphpoints:
+              memorypool_codecache_committed:
+                dpName: jvm_memorypool_codecache_committed
+              memorypool_codecache_used:
+                dpName: jvm_memorypool_codecache_used
+                sequence: 1
+              memorypool_codecache_max:
+                dpName: jvm_memorypool_codecache_max
+                sequence: 2
+          MemoryPool Compressed Class Space:
+            units: bytes
+            miny: 0.0
+            graphpoints:
+              Committed:
+                dpName: jvm_memorypool_compclass_committed
+              Used:
+                dpName: jvm_memorypool_compclass_used
+                sequence: 1
+              Max:
+                dpName: jvm_memorypool_compclass_max
+                sequence: 2
+          MemoryPool Metacache:
+            units: bytes
+            miny: 0.0
+            graphpoints:
+              Committed:
+                dpName: jvm_memorypool_meta_committed
+              Used:
+                dpName: jvm_memorypool_meta_used
+                sequence: 1
+              Max:
+                dpName: jvm_memorypool_meta_max
+                sequence: 2
+          MemoryPool PS Eden Space:
+            units: bytes
+            miny: 0.0
+            graphpoints:
+              Committed:
+                dpName: jvm_memorypool_pseden_committed
+              Used:
+                dpName: jvm_memorypool_pseden_used
+                sequence: 1
+              Max:
+                dpName: jvm_memorypool_pseden_max
+                sequence: 2
+          MemoryPool PS Old Gen:
+            units: bytes
+            miny: 0.0
+            graphpoints:
+              Committed:
+                dpName: jvm_memorypool_psoldgen_committed
+              Used:
+                dpName: jvm_memorypool_psoldgen_used
+                sequence: 1
+              Max:
+                dpName: jvm_memorypool_psoldgen_max
+                sequence: 2
+          MemoryPool PS Survivor Space:
+            units: bytes
+            miny: 0.0
+            graphpoints:
+              Committed:
+                dpName: jvm_memorypool_pssurvivor_committed
+              Used:
+                dpName: jvm_memorypool_pssurvivor_used
+                sequence: 1
+              Max:
+                dpName: jvm_memorypool_pssurvivor_max
+                sequence: 2
 
       ActiveMQBroker:
         targetPythonClass: ZenPacks.community.ActiveMQ.ActiveMQBroker

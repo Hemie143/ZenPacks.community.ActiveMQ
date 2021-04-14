@@ -80,7 +80,6 @@ class ActiveMQJVM(PythonDataSourcePlugin):
 
         for datasource in config.datasources:
             url = self.urls[datasource.datasource].format(ip_address, datasource.zJolokiaPort)
-            log.debug('XXX url: {}'.format(url))
             try:
                 response = yield agent.request('GET', url, Headers(headers))
                 results[datasource.datasource] = {}
@@ -112,9 +111,10 @@ class ActiveMQJVM(PythonDataSourcePlugin):
 
         for k, v in result.items():
             if k.startswith('jvm_memorypool_'):
-                log.debug('k: {} - v : {}'.format(k, v))
-
-
+                values = v['body']['value']     # TODO: use get
+                data['values'][component]['{}_used'.format(k)] = values['used']
+                data['values'][component]['{}_committed'.format(k)] = values['committed']
+                data['values'][component]['{}_max'.format(k)] = values['max']
         log.debug('ActiveMQJVM onSuccess data: {}'.format(data))
         return data
 
