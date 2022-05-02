@@ -157,7 +157,7 @@ class ActiveMQQueue(PythonDataSourcePlugin):
                 queueSizeDelta = queueSize - queueSize_prev
                 data['values'][component]['queueSizeDelta'] = queueSizeDelta
                 if queueSizeDelta > 0:
-                    severity = 3
+                    severity = 2
                     summary = 'There is a new message in the DLQ {}'.format(component)
                     message = 'There is a new message in the DLQ {}\r\nTotal number of messages: {}'.format(component,
                                                                                                             queueSize)
@@ -172,7 +172,7 @@ class ActiveMQQueue(PythonDataSourcePlugin):
                     'component': component,
                     'severity': severity,
                     'eventKey': 'AMQQueueDLQ_{}'.format(queueSize),
-                    'eventClassKey': 'AMQQueueDLQ',
+                    'eventClassKey': 'AMQQueueDLQDelta',
                     'summary': summary,
                     'message': message,
                     'eventClass': '/Status/ActiveMQ/DLQ',
