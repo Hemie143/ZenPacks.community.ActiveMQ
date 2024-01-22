@@ -57,6 +57,7 @@ class ActiveMQ(PythonPlugin):
         headers = {
                    "Accept": ['application/json'],
                    "Authorization": [auth_header],
+                   "Origin" : ["null"],
                    }
         results = {}
         agent = Agent(reactor)

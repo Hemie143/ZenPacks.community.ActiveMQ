@@ -85,6 +85,7 @@ class ActiveMQQueue(PythonDataSourcePlugin):
                    "Accept": ['application/json'],
                    "Authorization": [auth_header],
                    "User-Agent": ["Mozilla/3.0Gold"],
+                   "Origin": ["null"],
                    }
         results = {}
         agent = Agent(reactor)

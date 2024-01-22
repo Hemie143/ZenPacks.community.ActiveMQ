@@ -29,7 +29,7 @@ class ActiveMQBroker(PythonDataSourcePlugin):
     )
 
     urls = {
-        'jolokia': 'http://{}:{}/',
+        # 'jolokia': 'http://{}:{}/',
         'brokerhealth': 'http://{}:{}/api/jolokia/read/{},service=Health/CurrentStatus',
         'broker': 'http://{}:{}/api/jolokia/read/{}/UptimeMillis,StorePercentUsage,TempPercentUsage,CurrentConnectionsCount,MemoryPercentUsage',
     }
@@ -68,6 +68,7 @@ class ActiveMQBroker(PythonDataSourcePlugin):
                    "Accept": ['application/json'],
                    "Authorization": [auth_header],
                    "User-Agent": ["Mozilla/3.0Gold"],
+                   "Origin": ["null"],
                    }
         results = {}
         agent = Agent(reactor)
@@ -79,14 +80,11 @@ class ActiveMQBroker(PythonDataSourcePlugin):
                 response = yield agent.request('GET', url, Headers(headers))
                 results[datasource.datasource] = {}
                 results[datasource.datasource]['http_code'] = response.code
-                if datasource.datasource == 'jolokia':
-                    results[datasource.datasource]['body'] = None
-                else:
-                    # Jolokia doesn't reply with a Content-Length header.
-                    proto = StringProtocol()
-                    response.deliverBody(proto)
-                    body = yield proto.d
-                    results[datasource.datasource]['body'] = json.loads(body)
+                # Jolokia doesn't reply with a Content-Length header.
+                proto = StringProtocol()
+                response.deliverBody(proto)
+                body = yield proto.d
+                results[datasource.datasource]['body'] = json.loads(body)
             except Exception, e:
                 log.error('%s: %s', datasource.datasource, e)
         returnValue(results)
@@ -100,29 +98,6 @@ class ActiveMQBroker(PythonDataSourcePlugin):
         component = prepId(broker_name)
 
         # Check that all data has been received correctly
-        if 'jolokia' not in result or result['jolokia']['http_code'] > 299:
-            data['events'].append({
-                'device': config.id,
-                'component': broker_name,
-                'severity': 3,
-                'eventKey': 'AMQBroker',
-                'eventClassKey': 'AMQBroker',
-                'summary': 'Connection to AMQ/Jolokia failed',
-                'message': '{}'.format(d),
-                'eventClass': '/Status/Jolokia',
-            })
-        else:
-            data['events'].append({
-                'device': config.id,
-                'component': broker_name,
-                'severity': 0,
-                'eventKey': 'AMQBroker',
-                'eventClassKey': 'AMQBroker',
-                'summary': 'AMQBroker - Collection OK',
-                'message': '',
-                'eventClass': '/Status/Jolokia',
-            })
-
         if 'brokerhealth' in result:
             broker_health = result['brokerhealth']['body']['value']
             if broker_health.startswith('Good'):
